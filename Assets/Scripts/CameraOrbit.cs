@@ -3,39 +3,55 @@ using UnityEngine.InputSystem;
 
 public class CameraOrbit : MonoBehaviour
 {
-    [Header("Target & Offset")]
-    public Transform target;                  // Player
-    public Vector3 offset = new Vector3(0, 5, -12);
+    [Header("Target")]
+    public Transform target; // drag your Player here
 
-    [Header("Rotation Settings")]
+    [Header("Distance & Height")]
+    public float distance = 10f;
+    public float height = 4f;
+
+    [Header("Rotation")]
     public float mouseSensitivity = 0.2f;
-    public float smoothSpeed = 5f;            // how fast camera follows
-    public float minPitch = -30f;
-    public float maxPitch = 80f;
+    public float minPitch = -20f;
+    public float maxPitch = 60f;
+
+    [Header("Smoothing")]
+    public float smoothTime = 0.1f;
 
     private float yaw = 0f;
     private float pitch = 20f;
-    private Vector3 currentVelocity;          // for SmoothDamp
+
+    private Vector3 currentVelocity;
 
     void LateUpdate()
     {
         if (target == null || Mouse.current == null) return;
 
-        // Mouse input
-        Vector2 delta = Mouse.current.delta.ReadValue();
-        yaw += delta.x * mouseSensitivity;
-        pitch -= delta.y * mouseSensitivity;
+        // 🖱 Mouse input (new Input System)
+        Vector2 mouseDelta = Mouse.current.delta.ReadValue();
+
+        yaw += mouseDelta.x * mouseSensitivity;
+        pitch -= mouseDelta.y * mouseSensitivity;
+
+        // 🎯 Clamp vertical rotation (prevents flipping)
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
+        // 🎯 Rotation
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
 
-        // Desired camera position
+        // 🎯 Desired position (behind player)
+        Vector3 offset = new Vector3(0, height, -distance);
         Vector3 desiredPosition = target.position + rotation * offset;
 
-        // Smoothly ease camera to target position
-        transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref currentVelocity, 1f / smoothSpeed);
+        // 🎯 Smooth follow (prevents jitter)
+        transform.position = Vector3.SmoothDamp(
+            transform.position,
+            desiredPosition,
+            ref currentVelocity,
+            smoothTime
+        );
 
-        // Look at player
-        transform.LookAt(target.position);
+        // 🎯 Always look at player
+        transform.LookAt(target.position + Vector3.up * 1.5f);
     }
 }

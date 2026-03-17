@@ -453,11 +453,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraOrbit
   target: {fileID: 1011209200}
-  offset: {x: 0, y: 5, z: -12}
+  distance: 10
+  height: 4
   mouseSensitivity: 0.2
-  smoothSpeed: 10
-  minPitch: -30
-  maxPitch: 80
+  minPitch: 20
+  maxPitch: 60
+  smoothTime: 0.1
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
