@@ -453,10 +453,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraOrbit
   target: {fileID: 1011209200}
-  distance: 10
+  distance: 20
   height: 4
   mouseSensitivity: 0.2
-  minPitch: 20
+  minPitch: -20
   maxPitch: 60
   smoothTime: 0.1
 --- !u!1 &410087039
