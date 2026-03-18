@@ -132,7 +132,6 @@ GameObject:
   - component: {fileID: 264454888}
   - component: {fileID: 264454887}
   - component: {fileID: 264454886}
-  - component: {fileID: 264454892}
   - component: {fileID: 264454891}
   m_Layer: 0
   m_Name: Kite
@@ -274,34 +273,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KiteController
   player: {fileID: 1011209200}
-  liftMultiplier: 5
-  maxHeight: 12
-  minHeight: 0.5
-  horizontalDrag: 3
---- !u!145 &264454892
-SpringJoint:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 264454884}
-  serializedVersion: 4
-  m_ConnectedBody: {fileID: 1011209196}
-  m_ConnectedArticulationBody: {fileID: 0}
-  m_Anchor: {x: 0, y: 1, z: 0}
-  m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_Spring: 30
-  m_Damper: 5
-  m_MinDistance: 0
-  m_MaxDistance: 5
-  m_Tolerance: 0.025
-  m_BreakForce: Infinity
-  m_BreakTorque: Infinity
-  m_EnableCollision: 0
-  m_EnablePreprocessing: 1
-  m_MassScale: 1
-  m_ConnectedMassScale: 0.2
+  maxDistance: 6
+  pullStrength: 10
+  liftMultiplier: 15
+  liftExponent: 4
+  fallSpeed: 1
+  maxHeight: 15
+  groundHeight: 0
+  airDrag: 1.5
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -1039,5 +1018,5 @@ SceneRoots:
   - {fileID: 410087041}
   - {fileID: 832575519}
   - {fileID: 811052152}
-  - {fileID: 1011209200}
   - {fileID: 264454890}
+  - {fileID: 1011209200}
