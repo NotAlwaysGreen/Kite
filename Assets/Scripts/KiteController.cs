@@ -6,62 +6,86 @@ public class KiteController : MonoBehaviour
     [Header("References")]
     public Transform player;
 
-    [Header("Lift Settings")]
-    public float liftMultiplier = 2f;    // how much horizontal speed generates lift
-    public float maxHeight = 12f;        // maximum kite height
-    public float minHeight = 0.5f;       // kite stays on ground when idle
-    public float horizontalDrag = 3f;    // slows kite forward velocity
+    [Header("Distance")]
+    public float maxDistance = 6f;     // rope length before tension
+    public float pullStrength = 20f;   // how hard it pulls back
+
+    [Header("Lift")]
+    public float liftMultiplier = 30f;
+    public float liftExponent = 2.5f;
+    public float fallSpeed = 5f;
+    public float maxHeight = 12f;
+    public float groundHeight = 0.5f;
+
+    [Header("Movement")]
+    public float airDrag = 2f;
 
     private Rigidbody rb;
-    private SpringJoint spring;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
 
-        rb.mass = 0.2f;           // light kite
-        rb.linearDamping = 0.5f;           // gentle air resistance
-        rb.angularDamping = 0.5f;    // prevents spinning
-        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.mass = 0.2f;
+        rb.linearDamping = 0.5f;
+        rb.angularDamping = 1f;
         rb.useGravity = true;
-
-        spring = GetComponent<SpringJoint>();
-        if (spring == null)
-        {
-            Debug.LogWarning("KiteController requires a SpringJoint attached to the player!");
-        }
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
     }
 
     void FixedUpdate()
     {
-        if (player == null || spring == null) return;
+        if (player == null) return;
 
-        // Calculate horizontal speed of kite (ignore vertical)
-        Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
-        float speed = horizontalVelocity.magnitude;
+        Vector3 toPlayer = player.position - transform.position;
+        float distance = toPlayer.magnitude;
 
-        // Apply upward lift proportional to horizontal speed
-        if (speed > 0.1f)
+        float tension = 0f;
+
+        // 🪢 1. ONLY pull if too far → creates tension
+        if (distance > maxDistance)
         {
-            Vector3 lift = Vector3.up * speed * liftMultiplier * Time.fixedDeltaTime;
-            rb.AddForce(lift, ForceMode.VelocityChange);
+            float excess = distance - maxDistance;
+
+            // normalize tension (0 → 1)
+            tension = Mathf.Clamp01(excess / maxDistance);
+
+            Vector3 pullDir = toPlayer.normalized;
+
+            rb.AddForce(pullDir * pullStrength * tension, ForceMode.Acceleration);
         }
 
-        // Dampen horizontal velocity so kite doesn't shoot past player
-        Vector3 dampedVelocity = horizontalVelocity * Mathf.Exp(-horizontalDrag * Time.fixedDeltaTime);
-        rb.linearVelocity = new Vector3(dampedVelocity.x, rb.linearVelocity.y, dampedVelocity.z);
-
-        // Clamp kite height
-        if (rb.position.y > maxHeight)
+        // 🌬 2. EXPONENTIAL LIFT BASED ON TENSION
+        if (tension > 0.01f)
         {
-            rb.position = new Vector3(rb.position.x, maxHeight, rb.position.z);
-            rb.linearVelocity = new Vector3(rb.linearVelocity.x, Mathf.Min(rb.linearVelocity.y, 0), rb.linearVelocity.z);
+            float curved = Mathf.Pow(tension, liftExponent);
+            float liftForce = curved * liftMultiplier;
+
+            rb.AddForce(Vector3.up * liftForce, ForceMode.Acceleration);
+        }
+        else
+        {
+            // 🍂 No tension → fall
+            rb.AddForce(Vector3.down * fallSpeed, ForceMode.Acceleration);
         }
 
-        if (rb.position.y < minHeight)
+        // 🧊 3. Horizontal drag
+        Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
+        horizontalVel *= Mathf.Exp(-airDrag * Time.fixedDeltaTime);
+
+        rb.linearVelocity = new Vector3(horizontalVel.x, rb.linearVelocity.y, horizontalVel.z);
+
+        // 🧱 4. Clamp height
+        if (transform.position.y > maxHeight)
         {
-            rb.position = new Vector3(rb.position.x, minHeight, rb.position.z);
-            rb.linearVelocity = new Vector3(rb.linearVelocity.x, Mathf.Max(rb.linearVelocity.y, 0), rb.linearVelocity.z);
+            transform.position = new Vector3(transform.position.x, maxHeight, transform.position.z);
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
+        }
+
+        if (transform.position.y < groundHeight)
+        {
+            transform.position = new Vector3(transform.position.x, groundHeight, transform.position.z);
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
         }
     }
 }
