@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 public class CameraOrbit : MonoBehaviour
 {
     [Header("Target")]
-    public Transform target; // drag your Player here
+    public Transform target; // Player
 
     [Header("Distance & Height")]
     public float distance = 10f;
@@ -27,23 +27,22 @@ public class CameraOrbit : MonoBehaviour
     {
         if (target == null || Mouse.current == null) return;
 
-        // 🖱 Mouse input (new Input System)
+        // Mouse input
         Vector2 mouseDelta = Mouse.current.delta.ReadValue();
-
         yaw += mouseDelta.x * mouseSensitivity;
         pitch -= mouseDelta.y * mouseSensitivity;
 
-        // 🎯 Clamp vertical rotation (prevents flipping)
+        // Clamp vertical rotation (prevents flipping)
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
-        // 🎯 Rotation
+        // Rotation
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
 
-        // 🎯 Desired position (behind player)
+        // Desired position
         Vector3 offset = new Vector3(0, height, -distance);
         Vector3 desiredPosition = target.position + rotation * offset;
 
-        // 🎯 Smooth follow (prevents jitter)
+        // Smooth movement
         transform.position = Vector3.SmoothDamp(
             transform.position,
             desiredPosition,
@@ -51,7 +50,7 @@ public class CameraOrbit : MonoBehaviour
             smoothTime
         );
 
-        // 🎯 Always look at player
+        // Look at player
         transform.LookAt(target.position + Vector3.up * 1.5f);
     }
 }
