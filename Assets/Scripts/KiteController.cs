@@ -15,7 +15,9 @@ public class KiteController : MonoBehaviour
     public float liftExponent = 2.5f;
     public float fallSpeed = 5f;
     public float maxHeight = 12f;
-    public float groundHeight = 0.5f;
+
+    [Header("Ground")]
+    public float groundHeight = 0.5f; // pivot stays above ground
 
     [Header("Movement")]
     public float airDrag = 2f;
@@ -38,7 +40,7 @@ public class KiteController : MonoBehaviour
         rb.useGravity = true;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-        // Set flat baseline rotation: flat on ground, nose forward
+        // Flat baseline rotation: kite flat on ground, nose forward
         flatRotation = Quaternion.Euler(-90f, transform.eulerAngles.y + 180f, 0f);
         transform.rotation = flatRotation;
 
@@ -78,21 +80,33 @@ public class KiteController : MonoBehaviour
         Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z) * Mathf.Exp(-airDrag * Time.fixedDeltaTime);
         rb.linearVelocity = new Vector3(horizontalVel.x, rb.linearVelocity.y, horizontalVel.z);
 
-        // Clamp height
+        // Clamp max height only
         if (transform.position.y > maxHeight)
-            transform.position = new Vector3(transform.position.x, maxHeight, transform.position.z);
-        if (transform.position.y < groundHeight)
-            transform.position = new Vector3(transform.position.x, groundHeight, transform.position.z);
+        {
+            Vector3 pos = rb.position;
+            pos.y = maxHeight;
+            rb.position = pos;
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        }
 
-        // Handle rotation
+        // Ground stabilization (prevents sinking below ground)
+        if (transform.position.y < groundHeight)
+        {
+            Vector3 pos = rb.position;
+            pos.y = groundHeight;
+            rb.position = pos;
+
+            // Zero vertical velocity so it stays flat
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        }
+
         HandleRotation();
     }
 
     void HandleRotation()
     {
-        float height = transform.position.y;
         float verticalSpeed = rb.linearVelocity.y;
-        bool nearGround = height <= groundHeight + 0.3f;
+        bool nearGround = transform.position.y <= groundHeight + 0.01f;
 
         // Smooth yaw toward player only when lifted
         if (!nearGround && (verticalSpeed + 1f) > 0.05f)
@@ -112,14 +126,12 @@ public class KiteController : MonoBehaviour
         {
             float biasedSpeed = verticalSpeed + 1f;
             float normalized = Mathf.Clamp(biasedSpeed / 5f, -1f, 1f);
-
-            // Negative = nose up, positive = nose down
-            targetPitch = -normalized * tiltAmount;
+            targetPitch = -normalized * tiltAmount; // negative = nose up
         }
 
-        // Combine: yaw + pitch + flat baseline
-        Quaternion yawRotation = currentYaw;                   // world Y rotation
-        Quaternion pitchRotation = Quaternion.Euler(targetPitch, 0f, 0f); // local X tilt
+        // Combine yaw + pitch + flat baseline
+        Quaternion yawRotation = currentYaw;
+        Quaternion pitchRotation = Quaternion.Euler(targetPitch, 0f, 0f);
         transform.rotation = Quaternion.Slerp(transform.rotation, yawRotation * pitchRotation * flatRotation, rotationSmooth * Time.deltaTime);
     }
 }
