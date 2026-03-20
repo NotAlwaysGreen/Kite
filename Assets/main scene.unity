@@ -139,14 +139,19 @@ MonoBehaviour:
   player: {fileID: 1011209200}
   maxDistance: 6
   pullStrength: 10
-  liftMultiplier: 15
-  liftExponent: 4
-  fallSpeed: 1
+  tensionRiseSpeed: 3
+  tensionFallSpeed: 4
+  baseLift: 0
+  liftMultiplier: 7
+  liftExponent: 3
   maxHeight: 12
+  customGravity: 15
+  verticalDamping: 0.99
+  maxFallSpeed: -100
   groundHeight: 0
-  airDrag: 4
+  airDrag: 5
   rotationSmooth: 5
-  tiltAmount: 25
+  tiltAmount: 40
   yawSmooth: 3
   ropeLength: 1
 --- !u!54 &42678718
