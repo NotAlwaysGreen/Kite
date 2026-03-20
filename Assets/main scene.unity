@@ -142,12 +142,13 @@ MonoBehaviour:
   liftMultiplier: 15
   liftExponent: 4
   fallSpeed: 1
-  maxHeight: 15
+  maxHeight: 12
   groundHeight: 0
-  airDrag: 1.5
+  airDrag: 4
   rotationSmooth: 5
   tiltAmount: 25
   yawSmooth: 3
+  ropeLength: 1
 --- !u!54 &42678718
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -530,7 +531,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 2d3e6bee11e293a4382a3b47f52e5e31, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
