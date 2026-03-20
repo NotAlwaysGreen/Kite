@@ -8,16 +8,16 @@ public class KiteController : MonoBehaviour
 
     [Header("Distance")]
     public float maxDistance = 6f;
-    public float pullStrength = 25f;
 
-    [Header("Lift")]
+    [Header("Pull & Lift")]
+    public float pullStrength = 25f;       // base strength of elastic pull
     public float liftMultiplier = 30f;
     public float liftExponent = 2.0f;
     public float fallSpeed = 5f;
-    public float maxHeight = 12f;
 
-    [Header("Ground")]
-    public float groundHeight = 0.5f;
+    [Header("Height & Ground")]
+    public float maxHeight = 12f;
+    public float groundHeight = 0.5f;      // pivot stays above ground
 
     [Header("Movement")]
     public float airDrag = 2f;
@@ -27,9 +27,14 @@ public class KiteController : MonoBehaviour
     public float tiltAmount = 25f;
     public float yawSmooth = 3f;
 
+    [Header("Smoothing & Limits")]
+    public float maxPullForce = 15f;        // cap for pull force
+    public float accelerationSmooth = 5f;   // lerp speed for pull force
+
     private Rigidbody rb;
-    private Quaternion flatRotation;
-    private Quaternion currentYaw;
+    private Quaternion flatRotation;        // kite lying flat on ground
+    private Quaternion currentYaw;          // yaw persists while falling
+    private float currentPull = 0f;         // smooth pull force
 
     void Start()
     {
@@ -40,7 +45,7 @@ public class KiteController : MonoBehaviour
         rb.useGravity = true;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-        // Flat baseline (kite lying on ground correctly)
+        // baseline rotation: flat on ground, nose forward
         flatRotation = Quaternion.Euler(-90f, transform.eulerAngles.y + 180f, 0f);
         transform.rotation = flatRotation;
 
@@ -57,41 +62,40 @@ public class KiteController : MonoBehaviour
         float tension = 0f;
 
         // -----------------------------
-        // ELASTIC ROPE (one-sided)
+        // ELASTIC ROPE PULL (smoothed)
         // -----------------------------
         if (distance > maxDistance)
         {
             float excess = distance - maxDistance;
-
             float normalized = excess / maxDistance;
 
-            // exponential pull (stronger when far)
-            float strength = Mathf.Pow(normalized, 1.8f);
+            // exponential pull based on distance
+            float targetForce = Mathf.Pow(normalized, 1.8f) * pullStrength;
 
-            Vector3 dir = toPlayer.normalized;
+            // cap pull force
+            targetForce = Mathf.Min(targetForce, maxPullForce);
 
-            rb.AddForce(dir * pullStrength * strength, ForceMode.Acceleration);
+            // smooth transition of force
+            currentPull = Mathf.Lerp(currentPull, targetForce, accelerationSmooth * Time.fixedDeltaTime);
 
-            tension = strength;
+            // apply pull
+            rb.AddForce(toPlayer.normalized * currentPull, ForceMode.Acceleration);
+
+            tension = currentPull / pullStrength; // scaled tension for lift
+        }
+        else
+        {
+            currentPull = 0f;
         }
 
         // -----------------------------
-        // LIFT with HEIGHT FALLOFF
+        // LIFT with HEIGHT FALL OFF
         // -----------------------------
         if (tension > 0.01f)
         {
-            float height = transform.position.y;
-
-            float height01 = Mathf.Clamp01(height / maxHeight);
-
-            // reduce lift near max height
-            float heightFactor = 1f - height01;
-
-            // smoother curve
-            heightFactor = Mathf.Pow(heightFactor, 2f);
-
+            float height01 = Mathf.Clamp01(transform.position.y / maxHeight);
+            float heightFactor = Mathf.Pow(1f - height01, 2f); // smoother falloff
             float liftForce = Mathf.Pow(tension, liftExponent) * liftMultiplier * heightFactor;
-
             rb.AddForce(Vector3.up * liftForce, ForceMode.Acceleration);
         }
         else
@@ -100,11 +104,10 @@ public class KiteController : MonoBehaviour
         }
 
         // -----------------------------
-        // DRAG (creates smooth easing)
+        // DRAG (horizontal smoothing)
         // -----------------------------
-        Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
+        Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         horizontalVel *= Mathf.Exp(-airDrag * Time.fixedDeltaTime);
-
         rb.linearVelocity = new Vector3(horizontalVel.x, rb.linearVelocity.y, horizontalVel.z);
 
         // -----------------------------
@@ -115,7 +118,6 @@ public class KiteController : MonoBehaviour
             Vector3 pos = rb.position;
             pos.y = groundHeight;
             rb.position = pos;
-
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         }
 
@@ -128,7 +130,7 @@ public class KiteController : MonoBehaviour
         bool nearGround = transform.position.y <= groundHeight + 0.01f;
 
         // -----------------------------
-        // YAW (face pull direction)
+        // YAW: face pull direction only while lifted
         // -----------------------------
         if (!nearGround && (verticalSpeed + 1f) > 0.05f)
         {
@@ -143,17 +145,14 @@ public class KiteController : MonoBehaviour
         }
 
         // -----------------------------
-        // PITCH (tilt based on vertical movement)
+        // PITCH: tilt based on vertical movement
         // -----------------------------
         float targetPitch = 0f;
-
         if (!nearGround)
         {
             float biasedSpeed = verticalSpeed + 1f;
             float normalized = Mathf.Clamp(biasedSpeed / 5f, -1f, 1f);
-
-            // nose up when rising, down when falling
-            targetPitch = -normalized * tiltAmount;
+            targetPitch = -normalized * tiltAmount; // nose up when rising, down when falling
         }
 
         Quaternion yawRotation = currentYaw;
