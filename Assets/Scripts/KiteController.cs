@@ -8,16 +8,16 @@ public class KiteController : MonoBehaviour
 
     [Header("Distance")]
     public float maxDistance = 6f;
-    public float pullStrength = 20f;
+    public float pullStrength = 25f;
 
     [Header("Lift")]
     public float liftMultiplier = 30f;
-    public float liftExponent = 2.5f;
+    public float liftExponent = 2.0f;
     public float fallSpeed = 5f;
     public float maxHeight = 12f;
 
     [Header("Ground")]
-    public float groundHeight = 0.5f; // pivot stays above ground
+    public float groundHeight = 0.5f;
 
     [Header("Movement")]
     public float airDrag = 2f;
@@ -28,8 +28,8 @@ public class KiteController : MonoBehaviour
     public float yawSmooth = 3f;
 
     private Rigidbody rb;
-    private Quaternion flatRotation;  // baseline rotation: flat on ground (-90 X + 180 Y)
-    private Quaternion currentYaw;    // persistent yaw during fall
+    private Quaternion flatRotation;
+    private Quaternion currentYaw;
 
     void Start()
     {
@@ -40,11 +40,10 @@ public class KiteController : MonoBehaviour
         rb.useGravity = true;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-        // Flat baseline rotation: kite flat on ground, nose forward
+        // Flat baseline (kite lying on ground correctly)
         flatRotation = Quaternion.Euler(-90f, transform.eulerAngles.y + 180f, 0f);
         transform.rotation = flatRotation;
 
-        // Initialize yaw from flat rotation
         currentYaw = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
     }
 
@@ -57,18 +56,42 @@ public class KiteController : MonoBehaviour
 
         float tension = 0f;
 
-        // Pull kite only if too far
+        // -----------------------------
+        // ELASTIC ROPE (one-sided)
+        // -----------------------------
         if (distance > maxDistance)
         {
             float excess = distance - maxDistance;
-            tension = Mathf.Clamp01(excess / maxDistance);
-            rb.AddForce(toPlayer.normalized * pullStrength * tension, ForceMode.Acceleration);
+
+            float normalized = excess / maxDistance;
+
+            // exponential pull (stronger when far)
+            float strength = Mathf.Pow(normalized, 1.8f);
+
+            Vector3 dir = toPlayer.normalized;
+
+            rb.AddForce(dir * pullStrength * strength, ForceMode.Acceleration);
+
+            tension = strength;
         }
 
-        // Lift based on tension (exponential)
+        // -----------------------------
+        // LIFT with HEIGHT FALLOFF
+        // -----------------------------
         if (tension > 0.01f)
         {
-            float liftForce = Mathf.Pow(tension, liftExponent) * liftMultiplier;
+            float height = transform.position.y;
+
+            float height01 = Mathf.Clamp01(height / maxHeight);
+
+            // reduce lift near max height
+            float heightFactor = 1f - height01;
+
+            // smoother curve
+            heightFactor = Mathf.Pow(heightFactor, 2f);
+
+            float liftForce = Mathf.Pow(tension, liftExponent) * liftMultiplier * heightFactor;
+
             rb.AddForce(Vector3.up * liftForce, ForceMode.Acceleration);
         }
         else
@@ -76,27 +99,23 @@ public class KiteController : MonoBehaviour
             rb.AddForce(Vector3.down * fallSpeed, ForceMode.Acceleration);
         }
 
-        // Horizontal drag
-        Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z) * Mathf.Exp(-airDrag * Time.fixedDeltaTime);
+        // -----------------------------
+        // DRAG (creates smooth easing)
+        // -----------------------------
+        Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
+        horizontalVel *= Mathf.Exp(-airDrag * Time.fixedDeltaTime);
+
         rb.linearVelocity = new Vector3(horizontalVel.x, rb.linearVelocity.y, horizontalVel.z);
 
-        // Clamp max height only
-        if (transform.position.y > maxHeight)
-        {
-            Vector3 pos = rb.position;
-            pos.y = maxHeight;
-            rb.position = pos;
-            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-        }
-
-        // Ground stabilization (prevents sinking below ground)
+        // -----------------------------
+        // GROUND STABILIZATION
+        // -----------------------------
         if (transform.position.y < groundHeight)
         {
             Vector3 pos = rb.position;
             pos.y = groundHeight;
             rb.position = pos;
 
-            // Zero vertical velocity so it stays flat
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         }
 
@@ -108,11 +127,14 @@ public class KiteController : MonoBehaviour
         float verticalSpeed = rb.linearVelocity.y;
         bool nearGround = transform.position.y <= groundHeight + 0.01f;
 
-        // Smooth yaw toward player only when lifted
+        // -----------------------------
+        // YAW (face pull direction)
+        // -----------------------------
         if (!nearGround && (verticalSpeed + 1f) > 0.05f)
         {
             Vector3 toPlayer = player.position - transform.position;
             toPlayer.y = 0f;
+
             if (toPlayer.sqrMagnitude > 0.001f)
             {
                 Quaternion desiredYaw = Quaternion.LookRotation(toPlayer.normalized, Vector3.up);
@@ -120,18 +142,27 @@ public class KiteController : MonoBehaviour
             }
         }
 
-        // Pitch logic along kite's local X
+        // -----------------------------
+        // PITCH (tilt based on vertical movement)
+        // -----------------------------
         float targetPitch = 0f;
+
         if (!nearGround)
         {
             float biasedSpeed = verticalSpeed + 1f;
             float normalized = Mathf.Clamp(biasedSpeed / 5f, -1f, 1f);
-            targetPitch = -normalized * tiltAmount; // negative = nose up
+
+            // nose up when rising, down when falling
+            targetPitch = -normalized * tiltAmount;
         }
 
-        // Combine yaw + pitch + flat baseline
         Quaternion yawRotation = currentYaw;
         Quaternion pitchRotation = Quaternion.Euler(targetPitch, 0f, 0f);
-        transform.rotation = Quaternion.Slerp(transform.rotation, yawRotation * pitchRotation * flatRotation, rotationSmooth * Time.deltaTime);
+
+        transform.rotation = Quaternion.Slerp(
+            transform.rotation,
+            yawRotation * pitchRotation * flatRotation,
+            rotationSmooth * Time.deltaTime
+        );
     }
 }
